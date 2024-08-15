@@ -3,4 +3,4 @@ pandas==1.5.3
 plotly==5.23.0
 numpy==1.26.1
 pdfplumber==0.11.2
-st-gsheets-connection
+
