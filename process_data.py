@@ -20,15 +20,15 @@ def categorize_item(item):
         "frutos secos": ["almendra", "anacardo", "nuez", "pasas sultanas", "cacahuete"],
         "snacks": ["patatas", "chocolate", "chicles", "cereales rellenos", "patatas lisas", "patatas chili lima", "nachos", "varitas frambuesa"],
         "panadería": ["panecillo", "barra de pan", "barra rústica", "croqueta", "tortillas mexicanas", "chapata cristal", "pan m. 55% centeno", "pan viena redondo"],
-        "lácteos": ["leche", "yogur griego", "mantequilla", "queso cheddar", "yogur natural x6", "griego ligero natural", "griego stracciatella p-6", "queso rallado pizza", "nata montar", "s/lac cremoso azucar"],
+        "lácteos": ["leche", "yogur", "mantequilla", "queso", "cremoso", "stracciatella", "griego", "nata"],
         "bebidas y caldos": ["caldo de pollo", "salsa de soja", "agua mineral", "soja calcio brick"],
-        "verduras y legumbres": ["garbanzo", "maíz", "ensalada", "cebolla", "pimiento tricolor", "champiñón pequeño", "calabacín verde", "zanahoria", "ajo seco", "tomate canario", "brotes tiernos"],
-        "carne": ["jamoncitos de pollo", "burger vacuno cerdo", "chuleta aguja", "lomo trozo", "cuarto trasero congelado", "burger mixta cerdo", "albóndigas", "chuleta aguja", "lomo trozo", "burger meat vacuno", "longaniza s/tripa", "gallina pesada", "pavo tacos"],
-        "condimentos y salsas": ["ketchup", "azúcar", "sabor", "harina para freir"],
-        "despensa": ["arroz redondo", "macarrón", "mezcla de semillas", "harina", "pasta", "avena crunchy", "arroz largo"],
-        "conservas": ["atún", "tomate triturado", "aceitunas con anchoa", "pepinillo pequeño"],
+        "verduras y legumbres": ["garbanzo", "maíz", "ensalada", "cebolla", "pimiento", "champiñón", "calabacín", "zanahoria", "ajo", "brotes tiernos"],
+        "carne": ["jamoncitos", "burger", "chuleta", "lomo", "cuarto trasero", "pavo", "albóndigas", "longaniza", "gallina", "tacos", "paleta", "loncha"],
+        "condimentos y salsas": ["ketchup", "azúcar", "harina", "sabor", "para freir"],
+        "despensa": ["arroz", "macarrón", "mezcla de semillas", "harina", "pasta", "avena crunchy", "arroz largo"],
+        "conservas": ["atún", "tomate triturado", "aceitunas", "pepinillo"],
         "platos preparados": ["hummus", "preparado andaluz", "ensaladilla rusa"],
-        "otros": ["huevos frescos", "estropajo salvauñas", "toall.bebe fresc.80", "refill dermo", "gamuza atrapapolvo", "rollo hogar doble", "lavavajillas aloe", "colg. triple accion", "gel crema", "estropajo jabonoso"]
+        "otros": ["huevos frescos", "estropajo", "toall.bebe", "dermo", "gamuza atrapapolvo", "rollo hogar doble", "lavavajillas", "colg. triple", "gel crema"]
     }
 
     for category, keywords in categories.items():
@@ -36,20 +36,8 @@ def categorize_item(item):
             return category
     return "otros"
 
-non_food_items = [
-    "TOTAL", "TARJETA", "MASTERCARD", "IVA", "G", "OP", "FACTURA", "BANCARIA", "AID", "ARC", 
-    "IMPORT", "N.C", "AUT", "SE ADMITEN DEVOLUCIONES", "CUOTA", "BASE IMPONIBLE", "€", 
-    "TELÉFONO", "AVDA.", "N.C:", "AUT:", "Importe:", "MASTERCARD", "****", "ARC:", "AID:", 
-    "SE ADMITEN DEVOLUCIONES CON TICKET", "FACTURA SIMPLIFICADA:", "OP:","UDS", "€"
-]
-
-def is_non_food_item(item):
-    """Función para verificar si un ítem no es alimenticio."""
-    return any(non_food in item for non_food in non_food_items)
-
 def extract_location(text):
     """Función para extraer la ubicación de la tienda del ticket."""
-    # Busca el texto entre "MERCADONA, S.A." y "TELÉFONO:"
     location_match = re.search(r"MERCADONA,\s+S\.A\.\s+[^\n]*\n(.*?)(?=TELÉFONO:)", text, re.DOTALL)
     return location_match.group(1).strip() if location_match else "Ubicación no encontrada"
 
@@ -57,6 +45,7 @@ def process_pdfs(uploaded_files):
     data = []
 
     # Asegurar que el directorio de datos exista
+    data_path = "data"
     if not os.path.exists(data_path):
         os.makedirs(data_path)
 
@@ -71,6 +60,9 @@ def process_pdfs(uploaded_files):
             text = page.extract_text()
 
             if text:
+                print("Texto extraído del PDF:")
+                print(text)
+
                 # Extraer ubicación
                 location = extract_location(text)
 
@@ -81,16 +73,26 @@ def process_pdfs(uploaded_files):
                 ticket_match = re.search(r"FACTURA SIMPLIFICADA:\s+([0-9\-]+)", text)
                 identificativo = ticket_match.group(1) if ticket_match else "Identificativo no encontrado"
 
-                # Extraer ítems y precios
-                items = re.findall(r"(\d+\s+[\w\s\/\.]+)\s+(\d+,\d{2})", text)
+                # Extraer ítems y precios utilizando un patrón más flexible
+                # Patrón mejorado para capturar ítems con múltiples palabras y precios
+                item_pattern = r"([A-Z0-9\s/]+)\s+(\d+,\d{2})"
+
+                # Filtrar líneas no relacionadas con productos
+                patron_no_producto = re.compile(r"(TARJETA BANCARIA|TOTAL|SUBTOTAL|CREDITO)", re.IGNORECASE)
+                
+                # Filtrar líneas no relacionadas con productos
+                filtered_lines = [line for line in text.splitlines() if not patron_no_producto.search(line)]
+
+                # Extraer ítems de las líneas filtradas
+                items = re.findall(item_pattern, '\n'.join(filtered_lines))
+
                 for item, precio in items:
                     item = item.strip()
-                    if not is_non_food_item(item):
-                        precio = float(precio.replace(",", "."))
-                        categoria = categorize_item(item)
-                        data.append([fecha, identificativo, location, item, categoria, precio])
+                    precio = round(float(precio.replace(",", ".")), 2)
+                    categoria = categorize_item(item)
+                    data.append([fecha, identificativo, location, item, categoria, precio])
             else:
-                st.warning(f"No se pudo extraer texto del archivo: {uploaded_file.name}")
+                print(f"No se pudo extraer texto del archivo: {uploaded_file.name}")
 
     if data:
         # Crear un DataFrame y guardarlo localmente como CSV
