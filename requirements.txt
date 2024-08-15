@@ -3,6 +3,4 @@ pdfplumber
 streamlit
 plotly
 numpy
-streamlit_gsheets
-gspread
-oauth2client
+st-gsheets-connection
