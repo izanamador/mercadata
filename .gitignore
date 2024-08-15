@@ -1,1 +1,3 @@
 *.pdf
+secrets.toml
+data/mercadata.csv
