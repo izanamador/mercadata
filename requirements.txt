@@ -1,5 +1,6 @@
 streamlit
-st-gsheets-connection==0.0.3
+pandas>=1.3.0,<2
+st-gsheets-connection==0.0.4
 plotly
 numpy
 pdfplumber
