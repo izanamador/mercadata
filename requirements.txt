@@ -1,6 +1,7 @@
 pandas>=2.1.1
 pdfplumber==0.7.5
-streamlit==1.16.0
+streamlit>=1.22.0
 plotly==5.13.1
 numpy>=1.25.1
 st-gsheets-connection==0.0.4
+
