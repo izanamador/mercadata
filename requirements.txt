@@ -3,3 +3,4 @@ pdfplumber
 streamlit
 plotly
 numpy
+st-gsheets-connection
