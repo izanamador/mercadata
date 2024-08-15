@@ -1,8 +1,7 @@
-pdfplumber
 streamlit
+st-gsheets-connection
 plotly
 numpy
-st-gsheets-connection
-pandas
+pdfplumber
 
 
