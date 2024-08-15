@@ -9,15 +9,10 @@ from streamlit_gsheets import GSheetsConnection
 data_path = "data/pdfs"
 output_csv = "data/mercadata.csv"
 
-def clean_item_text(item):
-    """Limpieza de texto del ítem para eliminar números de línea o códigos de barra."""
-    item = re.sub(r'(\d+\s+)?\d+\s+', '', item)  # Elimina números de línea y códigos
-    return item.strip()
-
 def categorize_item(item):
     """Función para categorizar los ítems"""
     # Normalizamos el nombre del ítem
-    item = clean_item_text(item).lower()
+    item = re.sub(r'[^a-zA-Z\s]', '', item).lower()
     
     # Diccionario de categorías por palabras clave
     categories = {
@@ -26,15 +21,14 @@ def categorize_item(item):
         "snacks": ["patatas", "chocolate", "chicles", "cereales rellenos", "patatas lisas", "patatas chili lima", "nachos", "varitas frambuesa"],
         "panadería": ["panecillo", "barra de pan", "barra rústica", "croqueta", "tortillas mexicanas", "chapata cristal", "pan m. 55% centeno", "pan viena redondo"],
         "lácteos": ["leche", "yogur griego", "mantequilla", "queso cheddar", "yogur natural x6", "griego ligero natural", "griego stracciatella p-6", "queso rallado pizza", "nata montar", "s/lac cremoso azucar"],
-        "bebidas y caldos": ["caldo de pollo", "salsa de soja", "agua mineral", "soja calcio brick", "te chai", "manzanilla"],
+        "bebidas y caldos": ["caldo de pollo", "salsa de soja", "agua mineral", "soja calcio brick"],
         "verduras y legumbres": ["garbanzo", "maíz", "ensalada", "cebolla", "pimiento tricolor", "champiñón pequeño", "calabacín verde", "zanahoria", "ajo seco", "tomate canario", "brotes tiernos"],
         "carne": ["jamoncitos de pollo", "burger vacuno cerdo", "chuleta aguja", "lomo trozo", "cuarto trasero congelado", "burger mixta cerdo", "albóndigas", "chuleta aguja", "lomo trozo", "burger meat vacuno", "longaniza s/tripa", "gallina pesada", "pavo tacos"],
         "condimentos y salsas": ["ketchup", "azúcar", "sabor", "harina para freir"],
         "despensa": ["arroz redondo", "macarrón", "mezcla de semillas", "harina", "pasta", "avena crunchy", "arroz largo"],
         "conservas": ["atún", "tomate triturado", "aceitunas con anchoa", "pepinillo pequeño"],
         "platos preparados": ["hummus", "preparado andaluz", "ensaladilla rusa"],
-        "higiene": ["toall.bebe", "lavavajillas", "refill dermo", "gel crema"],
-        "otros": ["huevos frescos", "estropajo salvauñas", "gamuza atrapapolvo", "rollo hogar doble"]
+        "otros": ["huevos frescos", "estropajo salvauñas", "toall.bebe fresc.80", "refill dermo", "gamuza atrapapolvo", "rollo hogar doble", "lavavajillas aloe", "colg. triple accion", "gel crema", "estropajo jabonoso"]
     }
 
     for category, keywords in categories.items():
@@ -88,15 +82,13 @@ def process_pdfs(uploaded_files):
                 identificativo = ticket_match.group(1) if ticket_match else "Identificativo no encontrado"
 
                 # Extraer ítems y precios
-                items = re.findall(r"(\d+\s+[\w\s\/\.\,]+)\s+(\d+,\d{2})", text)
+                items = re.findall(r"(\d+\s+[\w\s\/\.]+)\s+(\d+,\d{2})", text)
                 for item, precio in items:
                     item = item.strip()
                     if not is_non_food_item(item):
                         precio = float(precio.replace(",", "."))
-                        item = clean_item_text(item)
-                        if len(item) > 3:  # Filtrar entradas no válidas
-                            categoria = categorize_item(item)
-                            data.append([fecha, identificativo, location, item, categoria, precio])
+                        categoria = categorize_item(item)
+                        data.append([fecha, identificativo, location, item, categoria, precio])
             else:
                 st.warning(f"No se pudo extraer texto del archivo: {uploaded_file.name}")
 
