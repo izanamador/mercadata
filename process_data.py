@@ -17,18 +17,18 @@ def categorize_item(item):
     # Diccionario de categorías por palabras clave
     categories = {
         "fruta": ["aguacate", "fresón", "nectarina", "paraguayo", "tomate", "pera rocha", "ciruela roja", "banana", "pera conferencia", "mezcla de frutos rojos"],
-        "frutos secos": ["almendra", "anacardo", "nuez", "pasas sultanas"],
-        "snacks": ["patatas", "chocolate", "chicles", "cereales rellenos", "patatas lisas", "patatas chili lima", "nachos"],
+        "frutos secos": ["almendra", "anacardo", "nuez", "pasas sultanas", "cacahuete"],
+        "snacks": ["patatas", "chocolate", "chicles", "cereales rellenos", "patatas lisas", "patatas chili lima", "nachos", "varitas frambuesa"],
         "panadería": ["panecillo", "barra de pan", "barra rústica", "croqueta", "tortillas mexicanas", "chapata cristal", "pan m. 55% centeno", "pan viena redondo"],
-        "lácteos": ["leche", "yogur griego", "mantequilla", "queso cheddar", "yogur natural x6", "griego ligero natural", "griego stracciatella p-6", "queso rallado pizza", "nata montar"],
-        "bebidas y caldos": ["caldo de pollo", "salsa de soja"],
+        "lácteos": ["leche", "yogur griego", "mantequilla", "queso cheddar", "yogur natural x6", "griego ligero natural", "griego stracciatella p-6", "queso rallado pizza", "nata montar", "s/lac cremoso azucar"],
+        "bebidas y caldos": ["caldo de pollo", "salsa de soja", "agua mineral", "soja calcio brick"],
         "verduras y legumbres": ["garbanzo", "maíz", "ensalada", "cebolla", "pimiento tricolor", "champiñón pequeño", "calabacín verde", "zanahoria", "ajo seco", "tomate canario", "brotes tiernos"],
-        "carne": ["jamoncitos de pollo", "burger vacuno cerdo", "chuleta aguja", "lomo trozo", "cuarto trasero congelado", "burger mixta cerdo", "albóndigas", "chuleta aguja", "lomo trozo"],
-        "condimentos y salsas": ["ketchup", "azúcar", "sabor"],
-        "despensa": ["arroz redondo", "macarrón", "mezcla de semillas", "harina", "pasta", "avena crunchy"],
+        "carne": ["jamoncitos de pollo", "burger vacuno cerdo", "chuleta aguja", "lomo trozo", "cuarto trasero congelado", "burger mixta cerdo", "albóndigas", "chuleta aguja", "lomo trozo", "burger meat vacuno", "longaniza s/tripa", "gallina pesada", "pavo tacos"],
+        "condimentos y salsas": ["ketchup", "azúcar", "sabor", "harina para freir"],
+        "despensa": ["arroz redondo", "macarrón", "mezcla de semillas", "harina", "pasta", "avena crunchy", "arroz largo"],
         "conservas": ["atún", "tomate triturado", "aceitunas con anchoa", "pepinillo pequeño"],
         "platos preparados": ["hummus", "preparado andaluz", "ensaladilla rusa"],
-        "otros": ["huevos frescos", "estropajo salvauñas"]
+        "otros": ["huevos frescos", "estropajo salvauñas", "toall.bebe fresc.80", "refill dermo", "gamuza atrapapolvo", "rollo hogar doble", "lavavajillas aloe", "colg. triple accion", "gel crema", "estropajo jabonoso"]
     }
 
     for category, keywords in categories.items():
@@ -52,8 +52,6 @@ def extract_location(text):
     # Busca el texto entre "MERCADONA, S.A." y "TELÉFONO:"
     location_match = re.search(r"MERCADONA,\s+S\.A\.\s+[^\n]*\n(.*?)(?=TELÉFONO:)", text, re.DOTALL)
     return location_match.group(1).strip() if location_match else "Ubicación no encontrada"
-
-
 
 def process_pdfs(uploaded_files):
     data = []
@@ -84,7 +82,7 @@ def process_pdfs(uploaded_files):
                 identificativo = ticket_match.group(1) if ticket_match else "Identificativo no encontrado"
 
                 # Extraer ítems y precios
-                items = re.findall(r"\d\s+([A-Z\s]+)\s+(\d+,\d{2})", text)
+                items = re.findall(r"(\d+\s+[\w\s\/\.]+)\s+(\d+,\d{2})", text)
                 for item, precio in items:
                     item = item.strip()
                     if not is_non_food_item(item):
