@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
-from process_data import process_pdfs  # Solo importamos process_pdfs
+from process_data import process_pdfs, get_global_data  # Importa las funciones necesarias
 
 # Configuración de la página de Streamlit
 st.set_page_config(
@@ -43,7 +43,6 @@ else:
 # Barra lateral
 with st.sidebar:
     st.title('🛒 Mercadona Data Analysis')
-    
 
     # Filtro por meses
     if os.path.exists(csv_path):
@@ -51,12 +50,12 @@ with st.sidebar:
             data = pd.read_csv(csv_path)
             data["fecha"] = pd.to_datetime(data["fecha"], format="%d/%m/%Y %H:%M", dayfirst=True)
             data.set_index("fecha", inplace=True)
-            
+
             month_start_dates = data.index.to_period("M").to_timestamp().drop_duplicates().sort_values()
             selected_month_start = st.selectbox("Selecciona el mes", month_start_dates.strftime('%Y-%m'), index=0)
             selected_month_start = pd.Timestamp(selected_month_start)
             filtered_data_by_month = data[data.index.to_period("M").start_time == selected_month_start]
-            
+
             # Filtro por categoría
             selected_category = st.selectbox("Selecciona la categoría", data["categoría"].unique())
             filtered_data_by_categories = data[data["categoría"] == selected_category]
@@ -71,103 +70,152 @@ with st.sidebar:
         - Beta Testing de [Izan](https://www.tiktok.com/@quarto.es/video/7402546595943730464), en desarrollo. ¡Se aceptan sugerencias!
     ''')
 
-# Verificar si el archivo CSV existe y no está vacío
-if os.path.exists(csv_path):
+# Tabs principales
+tab1, tab2 = st.tabs(["Mis gastos", "Estadísticas generales"])
+
+with tab1:
+    # Verificar si el archivo CSV existe y no está vacío
+    if os.path.exists(csv_path):
+        try:
+            data = pd.read_csv(csv_path)
+            if not data.empty:
+                data["fecha"] = pd.to_datetime(data["fecha"], format="%d/%m/%Y %H:%M", dayfirst=True)
+                data.set_index("fecha", inplace=True)
+
+                # Métricas relevantes
+                total_spent = data["precio"].sum()
+                total_purchases = data["identificativo de ticket"].nunique()
+                avg_spent_per_purchase = data.groupby("identificativo de ticket")["precio"].sum().mean()
+                category_with_highest_spent = data.groupby("categoría")["precio"].sum().idxmax()
+                total_items_sold = data['item'].nunique()
+                avg_spent_per_month = data["precio"].resample('M').sum().mean()
+                total_tickets_per_month = data.groupby(data.index.to_period('M')).size().mean()
+
+                # Crear columnas para las métricas
+                col1, col2, col3 = st.columns(3)
+
+                # Mostrar las métricas en las columnas
+                with col1:
+                    st.metric(label="Gasto Total", value=f"€{total_spent:.2f}")
+                    st.metric(label="Gasto Promedio por Compra", value=f"€{avg_spent_per_purchase:.2f}")
+                    st.metric(label="Número Total de Compras", value=total_purchases)
+                    st.metric(label="Items Vendidos", value=total_items_sold)
+
+                with col2:
+                    st.metric(label="Categoría con Mayor Gasto", value=category_with_highest_spent)
+                    st.metric(label="Gasto Promedio Mensual", value=f"€{avg_spent_per_month:.2f}")
+                    st.metric(label="Tickets por Mes", value=f"{total_tickets_per_month:.2f}")
+
+                with col3:
+                    st.metric(label="Total Gastado en el Mes Seleccionado", value=f"€{filtered_data_by_month['precio'].sum():.2f}")
+                    st.metric(label="Número de Compras en el Mes Seleccionado", value=filtered_data_by_month['identificativo de ticket'].nunique())
+                    st.metric(label="Categoría con Mayor Gasto en el Mes Seleccionado", value=filtered_data_by_month.groupby("categoría")["precio"].sum().idxmax())
+
+                # Crear una sola fila con los gráficos principales
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    # Distribución del Gasto por Categoría
+                    total_price_per_category = data.groupby("categoría")["precio"].sum().reset_index()
+                    fig_pie = px.pie(total_price_per_category, values='precio', names='categoría', title='Distribución del Gasto por Categoría')
+                    st.plotly_chart(fig_pie)
+
+                with col2:
+                    # Gasto Total por Mes
+                    monthly_expense = data["precio"].resample('M').sum().reset_index()
+                    fig_bar = px.bar(monthly_expense, x='fecha', y='precio', labels={'fecha': 'Mes', 'precio': 'Gasto (€)'})
+                    st.plotly_chart(fig_bar)
+
+                with col3:
+                    # Precio Medio por Categoría
+                    avg_price_per_category = data.groupby("categoría")["precio"].mean().reset_index().sort_values(by="precio", ascending=False)
+                    fig_bar_avg = px.bar(avg_price_per_category, x='categoría', y='precio', labels={'precio': 'Precio Medio (€)'})
+                    st.plotly_chart(fig_bar_avg)
+
+                # Análisis del Gasto en el Tiempo y Top 10 Items
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    # Análisis del Gasto en el Tiempo
+                    daily_expense = data["precio"].resample('D').sum().reset_index()
+                    fig_line = px.line(daily_expense, x='fecha', y='precio', labels={'fecha': 'Fecha', 'precio': 'Gasto (€)'})
+                    st.plotly_chart(fig_line)
+
+                with col2:
+                    # Top 10 Items con Mayor Gasto
+                    top_items = data.groupby('item')['precio'].sum().nlargest(10).reset_index()
+                    fig_top_items = px.bar(top_items, x='item', y='precio', labels={'item': 'Item', 'precio': 'Gasto (€)'})
+                    st.plotly_chart(fig_top_items)
+
+                # Datos Filtrados
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.subheader("Datos Filtrados por Categorías")
+                    st.dataframe(filtered_data_by_categories)
+
+                with col2:
+                    st.subheader("Datos Filtrados por Mes")
+                    st.dataframe(filtered_data_by_month)
+
+                # Heatmap del gasto por día y hora
+                st.subheader("Heatmap del Gasto por Día y Hora")
+                data['day_of_week'] = data.index.dayofweek
+                data['hour_of_day'] = data.index.hour
+                heatmap_data = data.pivot_table(values='precio', index='hour_of_day', columns='day_of_week', aggfunc='sum', fill_value=0)
+                fig_heatmap = go.Figure(data=go.Heatmap(z=heatmap_data.values, x=['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'], y=list(range(24)), colorscale='Viridis'))
+                fig_heatmap.update_layout(xaxis_title='Día de la Semana', yaxis_title='Hora del Día')
+                st.plotly_chart(fig_heatmap)
+
+            else:
+                st.warning("El archivo CSV está vacío. Por favor, asegúrate de que `process_data.py` haya generado datos correctamente.")
+        
+        except Exception as e:
+            st.error(f"Error al leer el archivo CSV: {e}")
+    else:
+        st.error(f"Archivo {csv_path} no encontrado. Asegúrate de que `process_data.py` haya sido ejecutado correctamente.")
+
+# Pestaña de análisis avanzado
+with tab2:
+    # Usamos la función get_global_data para obtener los datos procesados
     try:
-        data = pd.read_csv(csv_path)
-        if not data.empty:
-            data["fecha"] = pd.to_datetime(data["fecha"], format="%d/%m/%Y %H:%M", dayfirst=True)
-            data.set_index("fecha", inplace=True)
+        gasto_total_por_mes, items_por_categoria, ventas_por_ubicacion, item_mas_vendido, ticket_medio, ticket_mas_alto = get_global_data()
 
-            # Métricas relevantes
-            total_spent = data["precio"].sum()
-            total_purchases = data["identificativo de ticket"].nunique()
-            avg_spent_per_purchase = data.groupby("identificativo de ticket")["precio"].sum().mean()
-            category_with_highest_spent = data.groupby("categoría")["precio"].sum().idxmax()
-            total_items_sold = data['item'].nunique()
-            avg_spent_per_month = data["precio"].resample('M').sum().mean()
-            total_tickets_per_month = data.groupby(data.index.to_period('M')).size().mean()
-
-            # Crear columnas para las métricas
-            col1, col2, col3 = st.columns(3)
-
-            # Mostrar las métricas en las columnas
-            with col1:
-                st.metric(label="Gasto Total", value=f"€{total_spent:.2f}")
-                st.metric(label="Gasto Promedio por Compra", value=f"€{avg_spent_per_purchase:.2f}")
-                st.metric(label="Número Total de Compras", value=total_purchases)
-                st.metric(label="Items Vendidos", value=total_items_sold)
-
-            with col2:
-                st.metric(label="Categoría con Mayor Gasto", value=category_with_highest_spent)
-                st.metric(label="Gasto Promedio Mensual", value=f"€{avg_spent_per_month:.2f}")
-                st.metric(label="Tickets por Mes", value=f"{total_tickets_per_month:.2f}")
-
-            with col3:
-                st.metric(label="Total Gastado en el Mes Seleccionado", value=f"€{filtered_data_by_month['precio'].sum():.2f}")
-                st.metric(label="Número de Compras en el Mes Seleccionado", value=filtered_data_by_month['identificativo de ticket'].nunique())
-                st.metric(label="Categoría con Mayor Gasto en el Mes Seleccionado", value=filtered_data_by_month.groupby("categoría")["precio"].sum().idxmax())
-
-            # Crear una sola fila con los gráficos principales
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                # Distribución del Gasto por Categoría
-                total_price_per_category = data.groupby("categoría")["precio"].sum().reset_index()
-                fig_pie = px.pie(total_price_per_category, values='precio', names='categoría', title='Distribución del Gasto por Categoría')
-                st.plotly_chart(fig_pie)
-
-            with col2:
-                # Gasto Total por Mes
-                monthly_expense = data["precio"].resample('M').sum().reset_index()
-                fig_bar = px.bar(monthly_expense, x='fecha', y='precio', labels={'fecha': 'Mes', 'precio': 'Gasto (€)'})
-                st.plotly_chart(fig_bar)
-
-            with col3:
-                # Precio Medio por Categoría
-                avg_price_per_category = data.groupby("categoría")["precio"].mean().reset_index().sort_values(by="precio", ascending=False)
-                fig_bar_avg = px.bar(avg_price_per_category, x='categoría', y='precio', labels={'precio': 'Precio Medio (€)'})
-                st.plotly_chart(fig_bar_avg)
-
-            # Análisis del Gasto en el Tiempo y Top 10 Items
-            col1, col2 = st.columns(2)
-
-            with col1:
-                # Análisis del Gasto en el Tiempo
-                daily_expense = data["precio"].resample('D').sum().reset_index()
-                fig_line = px.line(daily_expense, x='fecha', y='precio', labels={'fecha': 'Fecha', 'precio': 'Gasto (€)'})
-                st.plotly_chart(fig_line)
-
-            with col2:
-                # Top 10 Items con Mayor Gasto
-                top_items = data.groupby('item')['precio'].sum().nlargest(10).reset_index()
-                fig_top_items = px.bar(top_items, x='item', y='precio', labels={'item': 'Item', 'precio': 'Gasto (€)'})
-                st.plotly_chart(fig_top_items)
-
-            # Datos Filtrados
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.subheader("Datos Filtrados por Categorías")
-                st.dataframe(filtered_data_by_categories)
-
-            with col2:
-                st.subheader("Datos Filtrados por Mes")
-                st.dataframe(filtered_data_by_month)
-
-            # Heatmap del gasto por día y hora
-            st.subheader("Heatmap del Gasto por Día y Hora")
-            data['day_of_week'] = data.index.dayofweek
-            data['hour_of_day'] = data.index.hour
-            heatmap_data = data.pivot_table(values='precio', index='hour_of_day', columns='day_of_week', aggfunc='sum', fill_value=0)
-            fig_heatmap = go.Figure(data=go.Heatmap(z=heatmap_data.values, x=['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'], y=list(range(24)), colorscale='Viridis'))
-            fig_heatmap.update_layout(xaxis_title='Día de la Semana', yaxis_title='Hora del Día')
-            st.plotly_chart(fig_heatmap)
-
+        if not gasto_total_por_mes.empty:
+            # Gráfico de gasto total por mes
+            fig_gasto_total_por_mes = px.bar(
+                gasto_total_por_mes,
+                x='mes',
+                y='precio',
+                title='Gasto Total por Mes',
+                labels={'mes': 'Mes', 'precio': 'Gasto Total (€)'}
+            )
+            st.plotly_chart(fig_gasto_total_por_mes)
         else:
-            st.warning("El archivo CSV está vacío. Por favor, asegúrate de que `process_data.py` haya generado datos correctamente.")
-    
+            st.warning("No se encontraron datos de gasto total por mes.")
+
+        if not item_mas_vendido.empty:
+            # Gráfico del ítem más vendido
+            fig_item_mas_vendido = px.bar(
+                item_mas_vendido,
+                x='item',
+                y='precio',  # Aquí usamos 'precio' en lugar de 'cantidad'
+                title='Ítem Más Vendido',
+                labels={'item': 'Ítem', 'precio': 'Total Vendido (€)'}
+            )
+            st.plotly_chart(fig_item_mas_vendido)
+        else:
+            st.warning("No se encontró información del ítem más vendido.")
+
+        # Gráficos de indicadores: ticket medio y ticket más alto
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.metric(label="Ticket Medio", value=f"€{ticket_medio:.2f}")
+
+        with col2:
+            st.metric(label="Ticket Más Alto", value=f"€{ticket_mas_alto:.2f}")
+
     except Exception as e:
-        st.error(f"Error al leer el archivo CSV: {e}")
-else:
-    st.error(f"Archivo {csv_path} no encontrado. Asegúrate de que `process_data.py` haya sido ejecutado correctamente.")
+        st.error(f"Error al obtener o representar los datos: {e}")
+

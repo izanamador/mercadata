@@ -118,14 +118,54 @@ def process_pdfs(uploaded_files):
     else:
         st.info("No se encontraron datos para escribir en el archivo CSV.")
 
-def main():
-    st.title("Procesador de Tickets PDF")
+def get_global_data():
+    """Función para obtener y procesar los datos globales desde Google Sheets."""
+    try:
+        # Conectar y leer datos existentes de Google Sheets
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        existing_data = conn.read(worksheet="Sheet1")  # Cambia "Sheet1" por el nombre de tu hoja
 
-    # Permitir a los usuarios subir archivos PDF
-    uploaded_files = st.file_uploader("Sube tus archivos PDF", accept_multiple_files=True, type="pdf")
+        if existing_data.empty:
+            st.warning("La hoja de cálculo está vacía.")
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), 0, 0
 
-    if uploaded_files:
-        process_pdfs(uploaded_files)
+        # Asegúrate de que las columnas necesarias están presentes
+        required_columns = ['fecha', 'precio', 'categoría', 'ubicación', 'item', 'identificativo de ticket']
+        for column in required_columns:
+            if column not in existing_data.columns:
+                st.error(f"Columna '{column}' no encontrada en los datos.")
+                return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), 0, 0
+
+        # Convertir la columna 'fecha' al formato de fecha
+        existing_data['fecha'] = pd.to_datetime(existing_data['fecha'], errors='coerce')
+
+        # Calcular el gasto total por mes
+        existing_data['mes'] = existing_data['fecha'].dt.to_period('M').astype(str)
+        gasto_total_por_mes = existing_data.groupby('mes')['precio'].sum().reset_index()
+        gasto_total_por_mes.columns = ['mes', 'precio']
+
+        # Contar el número de items vendidos por categoría
+        items_por_categoria = existing_data['categoría'].value_counts().reset_index()
+        items_por_categoria.columns = ['categoría', 'cantidad']
+
+        # Contar el número de ventas por ubicación
+        ventas_por_ubicacion = existing_data['ubicación'].value_counts().reset_index()
+        ventas_por_ubicacion.columns = ['ubicación', 'cantidad']
+
+        # Obtener el ítem más vendido
+        item_mas_vendido = existing_data.groupby('item')['precio'].sum().reset_index().sort_values(by='precio', ascending=False).head(1)
+
+        # Calcular valor del ticket medio y el ticket más alto
+        tickets = existing_data.groupby('identificativo de ticket')['precio'].sum().reset_index()
+        ticket_medio = tickets['precio'].mean()
+        ticket_mas_alto = tickets['precio'].max()
+
+        return gasto_total_por_mes, items_por_categoria, ventas_por_ubicacion, item_mas_vendido, ticket_medio, ticket_mas_alto
+
+    except Exception as e:
+        st.error(f"Error al obtener o procesar los datos: {e}")
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), 0, 0
+
 
 if __name__ == "__main__":
     main()
