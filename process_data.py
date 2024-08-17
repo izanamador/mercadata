@@ -3,7 +3,6 @@ import pandas as pd
 import pdfplumber
 import re
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 
 # Define paths and file names
 data_path = "data/pdfs"
@@ -100,21 +99,6 @@ def process_pdfs(uploaded_files):
         df.to_csv(output_csv, index=False)
         st.success(f"Archivo CSV generado con éxito: {output_csv}")
 
-        try:
-            # Conectar y leer datos existentes de Google Sheets
-            conn = st.connection("gsheets", type=GSheetsConnection)
-            existing_data = conn.read(worksheet="Sheet1")  # Cambia "Sheet1" por el nombre de tu hoja
-
-            # Verificar si hay nuevos datos para agregar
-            new_data = pd.concat([existing_data, df]).drop_duplicates(keep=False)
-
-            if not new_data.empty:
-                # Actualizar la hoja de cálculo con nuevos datos
-                conn.update(worksheet="Sheet1", data=new_data)  # Cambia "Sheet1" por el nombre de tu hoja
-            else:
-                st.info("No hay datos nuevos para actualizar")
-        except Exception as e:
-            st.error(f"Error al conectarse a Google Sheets: {e}")
     else:
         st.info("No se encontraron datos para escribir en el archivo CSV.")
 
