@@ -53,7 +53,7 @@ with st.sidebar:
             data.set_index("fecha", inplace=True)
             
             month_start_dates = data.index.to_period("M").to_timestamp().drop_duplicates().sort_values()
-            selected_month_start = st.selectbox("Selecciona el mes", month_start_dates.strftime('%Y-%m'), index=0)
+            selected_month_start = st.selectbox("Selecciona el mes", month_start_dates, index=0, format_func=lambda date: date.strftime('%B %Y'))
             selected_month_start = pd.Timestamp(selected_month_start)
             filtered_data_by_month = data[data.index.to_period("M").start_time == selected_month_start]
             
